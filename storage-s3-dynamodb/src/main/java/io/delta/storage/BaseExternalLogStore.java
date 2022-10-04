@@ -146,7 +146,7 @@ public abstract class BaseExternalLogStore extends HadoopFileSystemLogStore {
             }
         }
 
-        // Step 2: PREPARE the commit
+        // Step 1: PREPARE the commit
         final String tempPath = createTemporaryPath(resolvedPath);
         final ExternalCommitEntry entry = new ExternalCommitEntry(
             tablePath,
@@ -157,6 +157,12 @@ public abstract class BaseExternalLogStore extends HadoopFileSystemLogStore {
         );
         writeActions(fs, entry.absoluteTempPath(), actions);
         putExternalEntry(entry, false); // overwrite=false
+
+        // Step 2: Ensure that N.json does not exist in fs (for cases where it's already deleted from ddb)
+        if(fs.exists(resolvedPath)) {
+            deleteExternalEntry(entry);
+            throw new java.nio.file.FileAlreadyExistsException(resolvedPath.toString());
+        }
 
         try {
             // Step 3: COMMIT the commit to the delta log
@@ -212,6 +218,12 @@ public abstract class BaseExternalLogStore extends HadoopFileSystemLogStore {
     protected Path getTablePath(Path path) {
         return path.getParent().getParent();
     }
+
+    /**
+     * Delete entry from external store.
+     *
+     */
+    abstract protected void deleteExternalEntry(ExternalCommitEntry entry) throws IOException;
 
     /**
      * Write to external store in exclusive way.

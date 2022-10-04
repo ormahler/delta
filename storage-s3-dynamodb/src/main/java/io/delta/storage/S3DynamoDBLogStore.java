@@ -48,6 +48,7 @@ import com.amazonaws.services.dynamodbv2.model.QueryRequest;
 import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
 import com.amazonaws.services.dynamodbv2.model.ResourceInUseException;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
+import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 
@@ -119,6 +120,27 @@ public class S3DynamoDBLogStore extends BaseExternalLogStore {
 
         client = getClient();
         tryEnsureTableExists(hadoopConf);
+    }
+
+    @Override
+    protected void deleteExternalEntry(ExternalCommitEntry entry){
+        int retry = 0;
+
+        while (true) {
+            LOG.debug(String.format("delete Item %s", entry));
+            try {
+                client.deleteItem(createDeleteItemRequest(entry));
+                return;
+            } catch(Throwable e) {
+                LOG.info("{}:", e.getClass().getSimpleName(), e);
+                if (retry >= 5) {
+                    throw e;
+                }
+            }
+            retry += 1;
+        }
+
+
     }
 
     @Override
@@ -216,6 +238,15 @@ public class S3DynamoDBLogStore extends BaseExternalLogStore {
         }
 
         return pr;
+    }
+
+    private DeleteItemRequest createDeleteItemRequest(ExternalCommitEntry entry) {
+        final Map<String, AttributeValue> attributes = new ConcurrentHashMap<>();
+        attributes.put(ATTR_TABLE_PATH, new AttributeValue(entry.tablePath.toString()));
+        attributes.put(ATTR_FILE_NAME, new AttributeValue(entry.fileName));
+        attributes.put(ATTR_TEMP_PATH, new AttributeValue(entry.tempPath));
+
+        return new DeleteItemRequest(tableName, attributes);
     }
 
     private void tryEnsureTableExists(Configuration hadoopConf) throws IOException {

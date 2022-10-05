@@ -158,9 +158,15 @@ public abstract class BaseExternalLogStore extends HadoopFileSystemLogStore {
         writeActions(fs, entry.absoluteTempPath(), actions);
         putExternalEntry(entry, false); // overwrite=false
 
-        // Step 2: Ensure that N.json does not exist in fs (for cases where it's already deleted from ddb)
+        // Step 2: Ensure that N.json does not exist in filesystem (for cases where it's already external log-store)
         if(fs.exists(resolvedPath)) {
-            deleteExternalEntry(entry);
+            LOG.info("delta_log version exists in filesystem, removing entry from external log-store");
+            try{
+                deleteExternalEntry(entry);
+            }
+            catch(Throwable e){
+                LOG.error("Failed to delete entry from external log-store");
+            }
             throw new java.nio.file.FileAlreadyExistsException(resolvedPath.toString());
         }
 

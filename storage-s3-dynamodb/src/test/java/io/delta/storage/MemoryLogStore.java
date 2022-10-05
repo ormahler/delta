@@ -34,6 +34,12 @@ public class MemoryLogStore extends BaseExternalLogStore {
     }
 
     @Override
+    protected void deleteExternalEntry(ExternalCommitEntry entry) throws IOException {
+        final String key = createKey(entry.tablePath.toString(), entry.fileName);
+        hashMap.remove(key);
+    }
+
+    @Override
     protected void putExternalEntry(
             ExternalCommitEntry entry,
             boolean overwrite) throws IOException {
